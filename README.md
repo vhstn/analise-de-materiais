@@ -1,6 +1,6 @@
 # Analise-de-materiais
 
-Este projeto contém duas funçoes para análise de materiais:
+Este projeto contém duas funções para análise de materiais:
 
 1. Sugestão de materiais mais parecidos — Dada uma descrição, unidade de medida e família, retorna os materiais mais semelhantes com base na pontuação de similaridade.
 2. Detecção de duplicados — Compara toda a base de materiais para encontrar possíveis materiais duplicados de acordo com descrição, família e unidade de medida.
