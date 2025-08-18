@@ -1,5 +1,6 @@
+fastapi
+uvicorn
 pandas
 rapidfuzz
-recordlinkage
-openpyxl
-unidecode
+scikit-learn
+python-multipart
