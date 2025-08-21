@@ -9,13 +9,17 @@ Este projeto contém duas funções para análise de materiais:
 - `main.py` → API em FastAPI para sugerir materiais semelhantes e registrar feedback dos usuários.
 - `pesquisa_por_similaridade/` → busca por materiais parecidos
 - `pesquisa_duplicados/` → varredura geral para encontrar materiais duplicados
+- `dados_treino/` → frases para contextualizar a spaCy e identificar as entidades da frase.
+- `treinar_modelo/` → treina o modelo com base nos dados.
 - `requirements.txt` → bibliotecas necessárias
 
 # Endpoints
 - POST /buscar → Recebe descrição, UM e família e retorna top N semelhantes.
-- POST /feedback → Registra se a sugestão foi correta ou não.
+- POST /chat → Carrega uma mensagem e identifica as entidades: descrição, unidade de medida e família do material. Após isso, apresenta as sugestões.
+- POST /feedback-ner → Recebe correções de entidades, formata como dados de treino para o spaCy e inicia o processo de re-treinamento.
 
 # Instalação
 ```bash
 pip install -r requirements.txt
+python pesquisa_por_similaridade/treinamento_chat/treinar_modelo.py
 python -m uvicorn main:app --reload
