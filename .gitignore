@@ -1,0 +1,14 @@
+# Arquivos de feedback gerados automaticamente
+**/novos_dados_treino.jsonl
+**/*.processed_*
+
+# Modelo spaCy treinado
+**/treinamento_chat/treinamento_chat_materiais/
+
+# Arquivos de ambiente Python
+__pycache__/
+*.pyc
+.env
+
+# Outros arquivos de sistema
+.DS_Store
