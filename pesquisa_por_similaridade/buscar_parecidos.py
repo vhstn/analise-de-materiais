@@ -10,7 +10,7 @@ def remover_acentos(texto):
         if not unicodedata.combining(c)
     )
 
-def buscar_parecidos_manual(descricao, um, familia, dados, top_n=5):
+def buscar_parecidos_manual(descricao, um, familia, dados, top_n=5, score_min=100):
     # Normaliza a descrição de entrada
     descricao_norm = remover_acentos(descricao).upper()
 
@@ -42,7 +42,8 @@ def buscar_parecidos_manual(descricao, um, familia, dados, top_n=5):
             bonus += 20
 
         score = sim_desc + bonus + match_exatas
-        resultados.append((row['CODIGO'], row['DESCRICAO'], row['UM'], row['FAMILIA'], score))
+        if score >= score_min:
+            resultados.append((row['CODIGO'], row['DESCRICAO'], row['UM'], row['FAMILIA'], score))
 
     df_res = pd.DataFrame(resultados, columns=['CODIGO', 'DESCRICAO', 'UM', 'FAMILIA', 'SCORE'])
     return df_res.sort_values(by='SCORE', ascending=False).head(top_n)

@@ -4,3 +4,5 @@ pandas
 rapidfuzz
 scikit-learn
 python-multipart
+recordlinkage
+spacy
