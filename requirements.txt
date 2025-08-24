@@ -8,3 +8,4 @@ recordlinkage
 spacy
 python-jose[cryptography]
 python-dotenv
+streamlit
