@@ -6,3 +6,5 @@ scikit-learn
 python-multipart
 recordlinkage
 spacy
+python-jose[cryptography]
+python-dotenv

@@ -74,8 +74,7 @@ def treinar_ner(n_iter=300):
 
     # Salvar o modelo treinado
     try:
-        if not output_dir.exists():
-            output_dir.mkdir()
+        output_dir.mkdir(parents=True, exist_ok=True)
         nlp.to_disk(output_dir)
         logging.info(f"Modelo spaCy treinado e salvo com sucesso em: {output_dir}")
     except Exception as e:

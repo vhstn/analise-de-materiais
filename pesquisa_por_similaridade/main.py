@@ -1,8 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status, Security
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 import pandas as pd
-from buscar_parecidos import buscar_parecidos_manual
-from retreinar_com_feedback import retreinar_modelo_ner
 import os
 import spacy
 import logging
@@ -12,14 +11,61 @@ from typing import List
 from spacy.training import Example
 import random
 import threading
+from dotenv import load_dotenv
+from .buscar_parecidos import buscar_parecidos_manual
+from .retreinar_com_feedback import retreinar_modelo_ner
 
 # --- Configurações Iniciais ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# --- Configurações de Segurança ---
+# Carrega as variáveis de ambiente do arquivo .env
+load_dotenv()
+# Lê o token secreto a partir das variáveis de ambiente
+API_KEY = os.getenv("API_KEY")
+
+if not API_KEY:
+    raise ValueError("A variável de ambiente API_KEY não foi definida!")
+
+# Define o esquema de segurança: espera um header chamado "Authorization"
+oauth2_scheme = APIKeyHeader(name="Authorization", auto_error=False)
+
+# --- Função de Validação do Token ---
+
+async def validar_token_api(token: str = Security(oauth2_scheme)):
+    """
+    Valida se o token enviado no header 'Authorization' corresponde ao token secreto.
+    O token deve ser enviado no formato 'Bearer <seu_token>'.
+    """
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de autenticação não fornecido."
+        )
+    
+    if not token.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Formato do token inválido. Use 'Bearer <token>'."
+        )
+    
+    token_enviado = token.split(" ")[1]
+
+    if token_enviado != API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido ou expirado.",
+        )
+    return True # Se o token for válido, a função termina com sucesso.
+
+# --- Caminhos ---
+MODEL_PATH = "./pesquisa_por_similaridade/treinamento_chat/treinamento_chat_materiais"
+FEEDBACK_NER_FILE = "./pesquisa_por_similaridade/treinamento_chat/dados_aprendizado.jsonl" 
+CSV_PATH = "./pesquisa_por_similaridade/materiais.csv"
 # --- Carregamento de Dados e Modelos ---
 try:
     dados = pd.read_csv(
-        "materiais.csv",
+        CSV_PATH,
         sep=";",
         encoding="ISO-8859-1",
         usecols=["CODIGO", "DESCRICAO", "UM", "FAMILIA"],
@@ -30,9 +76,6 @@ except Exception as e:
     logging.error(f"Erro ao carregar CSV 'materiais.csv': {e}")
     dados = pd.DataFrame(columns=["CODIGO", "DESCRICAO", "UM", "FAMILIA"])
 
-# --- Caminhos ---
-MODEL_PATH = "./treinamento_chat/treinamento_chat_materiais"
-FEEDBACK_NER_FILE = "./treinamento_chat/dados_aprendizado.jsonl" 
 
 # Carrega o modelo de PLN na inicialização
 nlp = None
@@ -64,7 +107,7 @@ class FeedbackNER(BaseModel):
     entidades_corretas: List[EntidadeCorrigida]
 
 # --- Inicialização da API ---
-app = FastAPI(title="API de Materiais", version="1.1")
+app = FastAPI(title="API de Materiais", version="1.3-secure")
 
 # --- Endpoint raiz ---
 @app.get("/")
@@ -72,7 +115,7 @@ def raiz():
     return {"status": "ok", "mensagem": "API de Materiais funcionando!"}
 
 # --- Endpoint para buscar semelhantes ---
-@app.post("/buscar")
+@app.post("/buscar", dependencies=[Depends(validar_token_api)])
 def buscar(material: Material):
     if dados.empty:
         raise HTTPException(status_code=500, detail="Base de dados não carregada corretamente.")
@@ -87,7 +130,7 @@ def buscar(material: Material):
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 # --- Endpoint do chat ---
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(validar_token_api)])
 def chat(chat_message: ChatMessage):
     if nlp is None:
         raise HTTPException(status_code=500, detail="Modelo de linguagem não carregado.")
@@ -99,10 +142,13 @@ def chat(chat_message: ChatMessage):
         return {"status": "erro", "mensagem": "Não consegui identificar a descrição do material na sua mensagem."}
     
     try:
+        familia_str = entidades_extraidas.get("FAMILIA")
+        familia = int(familia_str) if familia_str else None
+        
         resultados = buscar_parecidos_manual(
             descricao=entidades_extraidas.get("DESCRICAO"),
             um=entidades_extraidas.get("UM"),
-            familia=int(entidades_extraidas.get("FAMILIA")) if entidades_extraidas.get("FAMILIA") else None,
+            familia=familia,
             dados=dados, top_n=5
         )
         return {
@@ -114,7 +160,7 @@ def chat(chat_message: ChatMessage):
         raise HTTPException(status_code=500, detail="Ocorreu um erro interno ao processar sua solicitação.")
 
 # --- Endpoint do feedback ---
-@app.post("/feedback-ner")
+@app.post("/feedback-ner", dependencies=[Depends(validar_token_api)])
 def salvar_feedback_ner(feedback: FeedbackNER):
     """
     Recebe correções de entidades, formata como dados de treino para o spaCy e
@@ -148,7 +194,7 @@ def salvar_feedback_ner(feedback: FeedbackNER):
     # Inicia o re-treinamento em uma thread separada para não bloquear a resposta da API
     if retraining_lock.acquire(blocking=False): # Tenta adquirir o lock sem bloquear
         try:
-            thread = threading.Thread(target=retreinar_modelo_ner)
+            thread = threading.Thread(target=retreinar_modelo_ner, args=(nlp,))
             thread.start()
             return {"status": "sucesso", "mensagem": "Feedback recebido. Processo de re-treinamento iniciado."}
         finally:
