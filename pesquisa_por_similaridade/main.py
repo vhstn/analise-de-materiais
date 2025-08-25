@@ -171,7 +171,7 @@ def salvar_feedback_ner(feedback: FeedbackNER):
     
     # Encontra os spans (start, end) para cada entidade corrigida
     for ent in feedback.entidades_corretas:
-        for match in re.finditer(re.escape(ent.descricao), texto):
+        for match in re.finditer(re.escape(ent.descricao), texto, flags=re.IGNORECASE):
             start, end = match.span()
             entidades.append((start, end, ent.entidade))
             break # Pega apenas a primeira ocorrência

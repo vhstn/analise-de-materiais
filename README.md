@@ -21,5 +21,9 @@ Este projeto contém duas funções para análise de materiais:
 # Instalação
 ```bash
 pip install -r requirements.txt
+# Treinamento inicial
 python pesquisa_por_similaridade/treinamento_chat/treinar_modelo.py
+# Main
 python -m uvicorn pesquisa_por_similaridade.main:app --reload
+# Interface
+python -m streamlit run app_interface.py

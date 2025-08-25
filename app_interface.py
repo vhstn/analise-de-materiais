@@ -56,12 +56,20 @@ def enviar_feedback(texto_original: str, entidades: list):
         response = requests.post(f"{API_URL}/feedback-ner", headers=headers, json=payload)
         response.raise_for_status()
         return True, response.json().get("mensagem", "Feedback enviado com sucesso.")
+    
+    except requests.exceptions.HTTPError as e:
+        try:
+            # CORREÇÃO AQUI: Retorna apenas a mensagem de erro específica da API
+            return False, e.response.json().get("detail", str(e))
+        except json.JSONDecodeError:
+            # CORREÇÃO AQUI: Retorna apenas a mensagem de erro HTTP
+            return False, str(e)
     except requests.exceptions.RequestException as e:
-        return False, f"Erro ao enviar feedback para a API: {e}"
+        return False, f"Erro de conexão: {e}"
 
 # --- Interface Gráfica (UI) ---
 
-st.title("🤖 Assistente de Análise de Materiais")
+st.title("Assistente de Análise de Materiais")
 st.markdown("Digite o que você precisa e o assistente buscará os materiais mais parecidos.")
 
 # Inicializa o estado da sessão
@@ -108,7 +116,7 @@ if st.session_state.erro:
     # Se o erro for sobre a falta de descrição, exibe o formulário de feedback
     if "Não consegui identificar a descrição" in st.session_state.erro:
         st.markdown("---")
-        st.subheader("💡 Ajude o assistente a aprender!")
+        st.subheader("Ajude o assistente a aprender!")
         st.info("Não consegui entender a descrição do material. Por favor, corrija a informação abaixo:")
 
         with st.form("feedback_form"):
@@ -138,10 +146,9 @@ if st.session_state.erro:
             else:
                 st.warning("Preencha ao menos a descrição para enviar o feedback.")
 
-
 if st.session_state.entidades:
     st.markdown("---")
-    st.subheader("🔍 Entidades Extraídas da sua Mensagem:")
+    st.subheader("Entidades Extraídas da sua Mensagem:")
     
     cols = st.columns(len(st.session_state.entidades))
     for i, (label, texto) in enumerate(st.session_state.entidades.items()):
