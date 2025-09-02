@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Configurações da Aplicação ---
-API_URL = "http://127.0.0.1:8000"
+API_URL = "http://api:8000"
 API_KEY = os.getenv("API_KEY")
 
 st.set_page_config(page_title="Análise de Materiais", layout="centered")

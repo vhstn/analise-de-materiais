@@ -27,3 +27,5 @@ python pesquisa_por_similaridade/treinamento_chat/treinar_modelo.py
 python -m uvicorn pesquisa_por_similaridade.main:app --reload
 # Interface
 python -m streamlit run app_interface.py
+# Rodar o container
+docker-compose up --build

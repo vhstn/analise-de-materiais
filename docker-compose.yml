@@ -1,0 +1,25 @@
+services:
+  # Serviço da API FastAPI
+  api:
+    build: .  
+    container_name: analise_materiais_api
+    env_file:
+      - .env  
+    command: >
+      sh -c "python -m uvicorn pesquisa_por_similaridade.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000" 
+    volumes:
+      - .:/app
+
+  # Interface Streamlit
+  interface:
+    build: .
+    container_name: analise_materiais_interface
+    depends_on:
+      - api
+    command: python -m streamlit run app_interface.py --server.port 8501 --server.address 0.0.0.0 --server.enableCORS false
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
