@@ -18,7 +18,7 @@ services:
     container_name: analise_materiais_interface
     depends_on:
       - api
-    command: python -m streamlit run app_interface.py --server.port 8501 --server.address 0.0.0.0 --server.enableCORS false
+    command: python -m streamlit run app_interface.py --server.port 8501 --server.address 0.0.0.0
     ports:
       - "8501:8501"
     volumes:

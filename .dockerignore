@@ -1,0 +1,16 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Arquivos de ambiente
+.env
+
+# Cache do Python e metadados
+__pycache__/
+*.pyc
+.vscode/
