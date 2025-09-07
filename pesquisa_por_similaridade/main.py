@@ -14,14 +14,12 @@ import threading
 from dotenv import load_dotenv
 from .buscar_parecidos import buscar_parecidos_manual
 from .retreinar_com_feedback import retreinar_modelo_ner
+from .celery_worker import retreinar_modelo_task
 
-# --- Configurações Iniciais ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Configurações de Segurança ---
-# Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
-# Lê o token secreto a partir das variáveis de ambiente
 API_KEY = os.getenv("API_KEY")
 
 if not API_KEY:
@@ -31,10 +29,9 @@ if not API_KEY:
 oauth2_scheme = APIKeyHeader(name="Authorization", auto_error=False)
 
 # --- Função de Validação do Token ---
-
 async def validar_token_api(token: str = Security(oauth2_scheme)):
     """
-    Valida se o token enviado no header 'Authorization' corresponde ao token secreto.
+    Valida se o token enviado no header 'Authorization' corresponde ao token.
     O token deve ser enviado no formato 'Bearer <seu_token>'.
     """
     if token is None:
@@ -56,12 +53,13 @@ async def validar_token_api(token: str = Security(oauth2_scheme)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido ou expirado.",
         )
-    return True # Se o token for válido, a função termina com sucesso.
+    return True 
 
 # --- Caminhos ---
 MODEL_PATH = "./pesquisa_por_similaridade/treinamento_chat/treinamento_chat_materiais"
 FEEDBACK_NER_FILE = "./pesquisa_por_similaridade/treinamento_chat/dados_aprendizado.jsonl" 
 CSV_PATH = "./pesquisa_por_similaridade/materiais.csv"
+
 # --- Carregamento de Dados e Modelos ---
 try:
     dados = pd.read_csv(
@@ -76,6 +74,25 @@ except Exception as e:
     logging.error(f"Erro ao carregar CSV 'materiais.csv': {e}")
     dados = pd.DataFrame(columns=["CODIGO", "DESCRICAO", "UM", "FAMILIA"])
 
+# --- Gerenciador de Modelo ---
+class ModelManager:
+    def __init__(self, model_path):
+        self.model_path = model_path
+        self.nlp = None
+        self.load_model()
+
+    def load_model(self):
+        try:
+            self.nlp = spacy.load(self.model_path)
+            logging.info("Modelo spaCy carregado/recarregado com sucesso.")
+        except Exception as e:
+            logging.error(f"Erro ao carregar o modelo spaCy: {e}")
+            self.nlp = None
+    
+    def get_model(self):
+        return self.nlp
+
+model_manager = ModelManager(MODEL_PATH)
 
 # Carrega o modelo de PLN na inicialização
 nlp = None
@@ -84,7 +101,6 @@ try:
     logging.info("Modelo spaCy carregado com sucesso.")
 except Exception as e:
     logging.error(f"Erro ao carregar o modelo spaCy: {e}")
-    # Trava os endpoints de /chat e /feedback-ner.
 
 # Lock para controlar o acesso ao processo de retreinamento
 retraining_lock = threading.Lock()
@@ -174,7 +190,7 @@ def salvar_feedback_ner(feedback: FeedbackNER):
         for match in re.finditer(re.escape(ent.descricao), texto, flags=re.IGNORECASE):
             start, end = match.span()
             entidades.append((start, end, ent.entidade))
-            break # Pega apenas a primeira ocorrência
+            break
     
     if len(entidades) != len(feedback.entidades_corretas):
         raise HTTPException(status_code=400, detail="Não foi possível encontrar todas as entidades no texto original.")
@@ -182,22 +198,14 @@ def salvar_feedback_ner(feedback: FeedbackNER):
     # Formato de treino do spaCy
     novo_exemplo_treino = (texto, {"entities": entidades})
 
-    # Salva o novo exemplo no arquivo JSONL
     try:
         with open(FEEDBACK_NER_FILE, 'a', encoding='utf-8') as f:
             f.write(json.dumps(novo_exemplo_treino, ensure_ascii=False) + '\n')
-        logging.info("Novo exemplo de treino adicionado a partir do feedback.")
+        logging.info("Novo exemplo de treino adicionado. Enviando tarefa para a fila.")
+
+        # Envia a tarefa para o Celery em vez de usar uma thread
+        retreinar_modelo_task.delay()
+
+        return {"status": "sucesso", "mensagem": "Feedback recebido. O retreinamento foi agendado e ocorrerá em segundo plano."}
     except Exception as e:
-        logging.error(f"Erro ao salvar feedback NER: {str(e)}")
-        raise HTTPException(status_code=500, detail="Erro ao salvar o feedback.")
-    
-    # Inicia o re-treinamento em uma thread separada para não bloquear a resposta da API
-    if retraining_lock.acquire(blocking=False): # Tenta adquirir o lock sem bloquear
-        try:
-            thread = threading.Thread(target=retreinar_modelo_ner, args=(nlp,))
-            thread.start()
-            return {"status": "sucesso", "mensagem": "Feedback recebido. Processo de re-treinamento iniciado."}
-        finally:
-            retraining_lock.release() # Libera o lock após iniciar a thread
-    else:
-        return {"status": "sucesso", "mensagem": "Feedback recebido. Um processo de re-treinamento já está em andamento."}
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar ou agendar feedback: {e}")

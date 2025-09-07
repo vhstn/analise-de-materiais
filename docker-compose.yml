@@ -1,16 +1,41 @@
 services:
+  # Serviço do RabbitMQ (Message Broker)
+  rabbitmq:
+    image: rabbitmq:3.9-management-alpine
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}    
+    ports:
+      - "5672:5672"  # Porta para a API e worker se comunicarem
+      - "15672:15672" # Porta para a interface de gerenciamento web do RabbitMQ
+
   # Serviço da API FastAPI
   api:
-    build: .  
+    build: .
     container_name: analise_materiais_api
     env_file:
-      - .env  
+      - .env
     command: >
-      sh -c "python -m uvicorn pesquisa_por_similaridade.main:app --host 0.0.0.0 --port 8000"
+      sh -c "python pesquisa_por_similaridade/treinamento_chat/treinar_modelo.py && 
+             python -m uvicorn pesquisa_por_similaridade.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
-      - "8000:8000" 
+      - "8000:8000"
     volumes:
       - .:/app
+    depends_on:
+      - rabbitmq
+
+  # Serviço do Worker Celery
+  worker:
+    build: .
+    container_name: analise_materiais_worker
+    command: python -m celery -A pesquisa_por_similaridade.celery_worker worker --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq
+      - api 
 
   # Interface Streamlit
   interface:

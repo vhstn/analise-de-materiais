@@ -9,3 +9,5 @@ spacy
 python-jose[cryptography]
 python-dotenv
 streamlit
+celery
+pika
