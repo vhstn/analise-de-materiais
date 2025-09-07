@@ -12,7 +12,7 @@ from spacy.training import Example
 import random
 import threading
 from dotenv import load_dotenv
-from .buscar_parecidos import buscar_parecidos_manual
+from .buscar_parecidos import buscar_parecidos_semantico as buscar_parecidos
 from .retreinar_com_feedback import retreinar_modelo_ner
 from .celery_worker import retreinar_modelo_task
 
@@ -136,9 +136,9 @@ def buscar(material: Material):
     if dados.empty:
         raise HTTPException(status_code=500, detail="Base de dados não carregada corretamente.")
     try:
-        resultados = buscar_parecidos_manual(
-            descricao=material.descricao, um=material.um, familia=material.familia,
-            dados=dados, top_n=5, score_min=100
+        resultados = buscar_parecidos(
+            descricao_query=material.descricao, um=material.um, familia=material.familia,
+            dados=dados, top_n=5
         )
         return {"entrada": material.dict(), "resultados": resultados.to_dict(orient="records")}
     except Exception as e:
@@ -161,11 +161,12 @@ def chat(chat_message: ChatMessage):
         familia_str = entidades_extraidas.get("FAMILIA")
         familia = int(familia_str) if familia_str else None
         
-        resultados = buscar_parecidos_manual(
-            descricao=entidades_extraidas.get("DESCRICAO"),
-            um=entidades_extraidas.get("UM"),
+        resultados = buscar_parecidos(
+            descricao_query=entidades_extraidas.get("DESCRICAO"),
+            um=entidades_extraidas.get("UM", ""), # Garante um valor padrão
             familia=familia,
-            dados=dados, top_n=5
+            dados=dados, 
+            top_n=5
         )
         return {
             "status": "sucesso", "entrada_chat": chat_message.mensagem,

@@ -11,3 +11,5 @@ python-dotenv
 streamlit
 celery
 pika
+sentence-transformers
+numpy

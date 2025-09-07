@@ -103,8 +103,10 @@ dados_treino = [
      {'entities': [(15, 24, 'DESCRICAO')]}),
     ('preciso de uma luminaria',
      {'entities': [(15, 24, 'DESCRICAO')]}),
-     ["Preciso de um parafuso allen sem cabeça", 
-     {"entities": [[14, 39, "DESCRICAO"]]}],
-     ["Preciso de um parafuso", 
-     {"entities": [[14, 22, "DESCRICAO"]]}]
+    ("Preciso de um parafuso allen sem cabeça", 
+     {"entities": [[14, 39, "DESCRICAO"]]}),
+    ("Preciso de um parafuso", 
+     {"entities": [[14, 22, "DESCRICAO"]]}),
+    ("Preciso de um parafuso de seis lados", 
+     {"entities": [[14, 36, "DESCRICAO"]]})
 ]
